@@ -1,5 +1,8 @@
 <launch>
+    <!-- arg: launch文件内部的局部变量，仅限于launch文件使用 -->
+    <!-- 设置局部变量config_path，表示euroc_config.yaml的具体地址 -->
     <arg name="config_path" default = "$(find feature_tracker)/../config/euroc/euroc_config.yaml" />
+      <!-- 设置局部变量vins_path，在parameters.cpp中使用鱼眼相机mash中用到 -->
 	  <arg name="vins_path" default = "$(find feature_tracker)/../config/../" />
     
     <node name="feature_tracker" pkg="feature_tracker" type="feature_tracker" output="log">
@@ -12,10 +15,12 @@
        <param name="vins_folder" type="string" value="$(arg vins_path)" />
     </node>
 
+    <!-- visualization_shift_x\y 表示在进行位姿图优化后，对得到的位姿在x,y坐标的偏移量（一般为0） -->
     <node name="pose_graph" pkg="pose_graph" type="pose_graph" output="screen">
         <param name="config_file" type="string" value="$(arg config_path)" />
         <param name="visualization_shift_x" type="int" value="0" />
         <param name="visualization_shift_y" type="int" value="0" />
+        <!-- skip_cnt表示每隔skip_cnt个图像帧才进行一次处理，skip_dis关键帧阈值 -->
         <param name="skip_cnt" type="int" value="0" />
         <param name="skip_dis" type="double" value="0" />
     </node>
