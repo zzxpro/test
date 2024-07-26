@@ -5,6 +5,7 @@ int FeatureTracker::n_id = 0;
 bool inBorder(const cv::Point2f &pt)
 {
     const int BORDER_SIZE = 1;
+    // cvRound()四舍五入、cvFloor()返回不大于参数的最大整数值，即向下取整
     int img_x = cvRound(pt.x);
     int img_y = cvRound(pt.y);
     return BORDER_SIZE <= img_x && img_x < COL - BORDER_SIZE && BORDER_SIZE <= img_y && img_y < ROW - BORDER_SIZE;
@@ -78,14 +79,27 @@ void FeatureTracker::addPoints()
     }
 }
 
+/**
+ * 该函数实现特征处理和光流跟踪
+ * @param _img 当前帧图像数据
+ * @param _cur_time 当前帧的时间戳
+ */
 void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 {
     cv::Mat img;
     TicToc t_r;
     cur_time = _cur_time;
 
+    // 判断是否对图像进行自适应直方图均衡化
     if (EQUALIZE)
     {
+        /**
+         * CLAHE(Constrast Limited Adaptive Histogram Equalization)
+         * createCLAHE(clipLimit, tileGridSize)函数用于创建CLAHE对象，然后使用该对象的apply()方法来对图像进行CLAHE均衡化
+         * 它在局部区域内对图像进行直方图均衡化，从而提高图像对比度而避免噪声过度增强
+         * clipLimit：对比度限制，对比度超过该阈值的像素将被截断，以防止过度增强对比度
+         * tileGridSize：定义了每个小块的大小。图像被分割为多个小块tiles，每个小块内进行局部直方图均衡化
+         */
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
         TicToc t_c;
         clahe->apply(_img, img);
@@ -94,27 +108,53 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
     else
         img = _img;
 
-    if (forw_img.empty())
+    // 光流追踪特征点，更新各变量为光流追踪做准备
+    if (forw_img.empty()) // 若forw_img为空，说明是起始帧
     {
         prev_img = cur_img = forw_img = img;
     }
-    else
+    else    // 否则是普通帧
     {
         forw_img = img;
     }
 
+    // 清空上一帧光流跟踪特征点
     forw_pts.clear();
 
+    // 进行光流追踪
     if (cur_pts.size() > 0)
     {
         TicToc t_o;
-        vector<uchar> status;
+        vector<uchar> status;   // 用于保存追踪状态 1 表示成功，0表示失败
         vector<float> err;
-        cv::calcOpticalFlowPyrLK(cur_img, forw_img, cur_pts, forw_pts, status, err, cv::Size(21, 21), 3);
+        /**
+         * 使用具有金字塔的迭代Lucas-Kanade方法计算稀疏特征集的光流
+         */
+        cv::calcOpticalFlowPyrLK(cur_img,               // 前一帧图像
+                                 forw_img,              // 当前帧图像
+                                 cur_pts,               // 特征点在前一帧中的坐标
+                                 forw_pts,              // 存储特征点在当前帧中的坐标
+                                 status,                // 用于存储每个特征点的追踪状态
+                                 err,                   // 用于存储每个特征点的追踪误差
+                                 cv::Size(21, 21),      // 窗口大小
+                                 3);                    // 金字塔层级
 
+        // 剔除图像边界外的特征点
         for (int i = 0; i < int(forw_pts.size()); i++)
             if (status[i] && !inBorder(forw_pts[i]))
                 status[i] = 0;
+
+        /**
+         * 特征点的状态由多个vector组成，每个vector的第i各元素表示第i个特征点对应的属性
+         *          特征点ID           ids  0 1 2 3 4 5                            [1 3 5]
+         *    在前两帧中的坐标      prev_pts  0 1 2 3 4 5                            [1 3 5]
+         *    在前一帧中的坐标       cur_pts  0 1 2 3 4 5                            [1 3 5] 
+         *    在当前帧中的坐标      forw_pts  0 1 2 3 4 5       --->ReduceVector()   [1 3 5]
+         *      成功追踪的次数     track_cnt  0 1 2 3 4 5                            [1 3 5]
+         *        归一化坐标系    cur_un_pts  0 1 2 3 4 5                            [1 3 5]
+         *                          status  0 1 0 1 0 1
+         *      reduceVector()根据第二个参数status压缩第一个参数v，将v中status中对应位置上1的变量放到v的前半部分
+         */
         reduceVector(prev_pts, status);
         reduceVector(cur_pts, status);
         reduceVector(forw_pts, status);

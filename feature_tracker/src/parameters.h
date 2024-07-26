@@ -15,7 +15,7 @@ extern std::vector<std::string> CAM_NAMES;
 extern int MAX_CNT;
 extern int MIN_DIST;
 extern int WINDOW_SIZE;
-extern int FREQ;
+extern int FREQ;        // 图像帧发布频率，该帧为0，则按原始图像帧率发布
 extern double F_THRESHOLD;
 extern int SHOW_TRACK;
 extern int STEREO_TRACK;

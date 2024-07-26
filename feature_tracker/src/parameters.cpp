@@ -11,7 +11,7 @@ int FREQ;
 double F_THRESHOLD;
 int SHOW_TRACK;
 int STEREO_TRACK;
-int EQUALIZE;
+int EQUALIZE;   // 如果图像整体太暗获太亮，则使用直方图进行均匀化，以获取更多特征点
 int ROW;
 int COL;
 int FOCAL_LENGTH;
@@ -37,6 +37,7 @@ T readParam(ros::NodeHandle &n, std::string name)
 void readParameters(ros::NodeHandle &n)
 {
     std::string config_file;
+    // "config_file" euroc_config.yaml文件地址
     config_file = readParam<std::string>(n, "config_file");
     cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
     if(!fsSettings.isOpened())
@@ -56,6 +57,7 @@ void readParameters(ros::NodeHandle &n)
     SHOW_TRACK = fsSettings["show_track"];
     EQUALIZE = fsSettings["equalize"];
     FISHEYE = fsSettings["fisheye"];
+    // 是否使用鱼眼相机
     if (FISHEYE == 1)
         FISHEYE_MASK = VINS_FOLDER_PATH + "config/fisheye_mask.jpg";
     CAM_NAMES.push_back(config_file);
