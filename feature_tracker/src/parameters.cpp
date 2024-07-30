@@ -4,7 +4,7 @@ std::string IMAGE_TOPIC;
 std::string IMU_TOPIC;
 std::vector<std::string> CAM_NAMES;
 std::string FISHEYE_MASK;
-int MAX_CNT;
+int MAX_CNT;        // 追踪特征点个数
 int MIN_DIST;
 int WINDOW_SIZE;
 int FREQ;
@@ -16,7 +16,7 @@ int ROW;
 int COL;
 int FOCAL_LENGTH;
 int FISHEYE;
-bool PUB_THIS_FRAME;
+bool PUB_THIS_FRAME;        // 是否发布前一帧特征点
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)

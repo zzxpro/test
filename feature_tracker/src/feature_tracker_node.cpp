@@ -43,7 +43,7 @@ ros::Publisher pub_restart;
 
 FeatureTracker trackerData[NUM_OF_CAM];
 double first_image_time;        // 起始帧时间戳
-int pub_count = 1;
+int pub_count = 1;              // 已经发布的帧数
 bool first_image_flag = true;   // 当前帧是否为起始帧
 double last_image_time = 0;     // 最新帧时间戳
 bool init_pub = 0;
@@ -83,6 +83,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
      *      通过计算当前实际发布频率，将其与给定发布频率FREQ比较，决定是否发布当前特征点追踪结果，PUB_THIS_FRAME
      *    系统长时间运行后，从数值上来说，实际频率计算式分子和分母都比较大，这样系统对瞬时发布速率变化不敏感，容易造成瞬时数据拥堵
      *   （连续几帧都发布或连续几帧都不发布），为避免瞬时数据拥堵，需要周期性重置计数器pub_count和first_image_time。
+     *    实际上选择当实际频率十分接近给定频率时，重置计数器
      */
     if (round(1.0 * pub_count / (img_msg->header.stamp.toSec() - first_image_time)) <= FREQ)
     {
@@ -150,9 +151,11 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
             break;
     }
 
+    // 发布前一帧特征点追踪结果：PUB_THIS_FRAME为true时，发布的其实是前一帧（而非最新帧）的特征点追踪结果
    if (PUB_THIS_FRAME)
    {
         pub_count++;
+        // 将特征点封装成ROS点云格式
         sensor_msgs::PointCloudPtr feature_points(new sensor_msgs::PointCloud);
         sensor_msgs::ChannelFloat32 id_of_point;
         sensor_msgs::ChannelFloat32 u_of_point;
@@ -181,12 +184,12 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
                     p.y = un_pts[j].y;
                     p.z = 1;
 
-                    feature_points->points.push_back(p);
-                    id_of_point.values.push_back(p_id * NUM_OF_CAM + i);
-                    u_of_point.values.push_back(cur_pts[j].x);
-                    v_of_point.values.push_back(cur_pts[j].y);
-                    velocity_x_of_point.values.push_back(pts_velocity[j].x);
-                    velocity_y_of_point.values.push_back(pts_velocity[j].y);
+                    feature_points->points.push_back(p);                        // 特征点去畸变后归一化相机平面坐标
+                    id_of_point.values.push_back(p_id * NUM_OF_CAM + i);        // 特征点ID
+                    u_of_point.values.push_back(cur_pts[j].x);                  // 特征点x坐标
+                    v_of_point.values.push_back(cur_pts[j].y);                  // 特征点y坐标
+                    velocity_x_of_point.values.push_back(pts_velocity[j].x);    // 特征点x方向速度
+                    velocity_y_of_point.values.push_back(pts_velocity[j].y);    // 特征点y方向速度
                 }
             }
         }
@@ -197,6 +200,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
         feature_points->channels.push_back(velocity_y_of_point);
         ROS_DEBUG("publish %f, at %f", feature_points->header.stamp.toSec(), ros::Time::now().toSec());
         // skip the first image; since no optical speed on frist image
+        // 起始帧没有速度，不发布
         if (!init_pub)
         {
             init_pub = 1;
@@ -204,6 +208,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
         else
             pub_img.publish(feature_points);
 
+        // 构建特征点可视化图
         if (SHOW_TRACK)
         {
             ptr = cv_bridge::cvtColor(ptr, sensor_msgs::image_encodings::BGR8);
@@ -215,6 +220,7 @@ void img_callback(const sensor_msgs::ImageConstPtr &img_msg)
                 cv::Mat tmp_img = stereo_img.rowRange(i * ROW, (i + 1) * ROW);
                 cv::cvtColor(show_img, tmp_img, CV_GRAY2RGB);
 
+                // 越红追踪次数越多，越蓝追踪次数越少
                 for (unsigned int j = 0; j < trackerData[i].cur_pts.size(); j++)
                 {
                     double len = std::min(1.0, 1.0 * trackerData[i].track_cnt[j] / WINDOW_SIZE);

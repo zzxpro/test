@@ -46,7 +46,7 @@ class FeatureTracker
 
     void undistortedPoints();
 
-    cv::Mat mask;                                       // 图像掩码
+    cv::Mat mask;                                       // 图像掩码，用于指示提取特征点的区域
     cv::Mat fisheye_mask;                               // 鱼眼相机mask，用来去去除边缘噪点
     // cv::Mat prev_img, cur_img, forw_img;                // 对应 上一帧的图像数据、当前图像数据、光流跟踪的上一帧的图像数据
     cv::Mat prev_img;                                   // 前两帧图像
